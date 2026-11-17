@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<link rel="stylesheet" href="style.css">
+	<title>PageTurn</title>
+</head>
+<body>
+	<!--page# display, test-->
+	<span class="page-info">
+		Page <span id="page-num"></span> of <span id="page-count"></span>
+	</span>
+	<br>
+
+	<!-- Adds a blank canvas container for PDF page-->
+	<div id="canvas-container">
+	</div>
+	<br>
+
+	<input type="file" accept=".pdf, application/pdf" />
+
+	<script type="module" src="app.js" charset="UTF-8"></script>
+
+</body>
+</html>
