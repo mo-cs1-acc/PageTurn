@@ -1,13 +1,106 @@
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
 /*flexboxes are amazing*/
 #canvas-container {
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  height: 100dvh;
+  z-index: -1;
 }
 
 @media only screen and (orientation: portrait) {
   #canvas-container {
     flex-direction: column;
   }
+}
+
+#pdf-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+  z-index: 0;
+}
+
+.pageturn-button {
+  all: unset;
+  height: 100dvh;
+  width: 20dvw;
+  background-color: rgba(0,0,0,0.5);
+  opacity: 0;
+  cursor: pointer;
+
+  /*for the arrows specifically*/
+  text-align: center;
+  font-size: 32px;
+  color: rgba(255,255,255,0.5);
+}
+
+
+#noturn-area {
+  all: unset;
+  height: 100dvh;
+  width: 60dvw;
+
+}
+
+
+
+#info-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+#name-info {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0dvw;
+  max-width: 90dvw;
+}
+
+#darken-overlay { /* Darkens the PDF below visibly*/
+  all: unset;
+  height: 80dvh;
+  width: 100dvw;
+  background-color: rgba(0,0,0,0.1);
+  cursor: pointer;
+}
+
+ /*style for both bars */
+.bar {
+  height: 10dvh;
+  width: 100dvw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: white;
+}
+
+.bottom-section {
+  width: 33dvw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.icon-button {
+  display: inline-flex;
+  height: 7dvh;
+  width: 7dvh;
+  background-color: white;
+  border-radius: 1dvh;
+  font-size: 4dvh;
+  padding: 0px;
+  justify-content: center;
+  align-items: center;
 }

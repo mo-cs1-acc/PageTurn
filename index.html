@@ -2,24 +2,44 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="style.css">
 	<title>PageTurn</title>
 </head>
 <body>
-	<!--page# display, test-->
-	<span class="page-info">
-		Page <span id="page-num"></span> of <span id="page-count"></span>
-	</span>
-	<br>
-
 	<!-- Adds a blank canvas container for PDF page-->
-	<div id="canvas-container">
-	</div>
-	<br>
+	<div id="canvas-container"></div>
 
-	<input type="file" accept=".pdf, application/pdf" />
+	<!--these are on top of the PDF-->
+	<div id="pdf-overlay">
+		<button class="pageturn-button" id="backward-page">←</button>
+		<button id="noturn-area"></button>
+		<button class="pageturn-button" id="forward-page">→</button>
+	</div>
+
+	<div id="info-overlay"> <!--this should be able to fade-->
+		<header class="bar" id="top-bar">
+			<h1><span id="name-info">PageTurn</span></h1>
+		</header>
+
+		<button id="darken-overlay"></button>
+
+		<footer class="bar" id="bottom-bar">
+			<div class="bottom-section" id="bottom-left">
+				<button></button>
+			</div>
+			<div class="bottom-section" id="bottom-center">
+				<h2><span id="page-info">Upload PDF to begin</span></h2>
+			</div>
+			<div class="bottom-section" id="bottom-right">
+				<input type="file" accept=".pdf, application/pdf" id="upload"/>
+				<button class="icon-button" id="settings" title="Settings"><h3>⚙</h3></button>
+			</div>
+		</footer>
+
+	</div>
+
 
 	<script type="module" src="app.js" charset="UTF-8"></script>
-
 </body>
 </html>

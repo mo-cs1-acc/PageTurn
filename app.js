@@ -1,53 +1,49 @@
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/build/pdf.worker.min.mjs';
+const wasmUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/wasm/'; //Some IMSLP sheet music needs this, apparently
 
-let currentSpreadIndex = 0; //needed for two-page spread
+let currentSpreadIndex = 0; //needed for two-page spread, this is the PAGE NUMBER.
 let pdfDocGlobal = null;
 let resizeTimeout = null; //also necessary for the first time the resize listener is called
+let pagesCache = []; //this is an awesome idea
+let spreadMap = [];
 
 //in theory could be inside reader.onload, but this works fine
 const input = document.querySelector('input[type="file"]');
 const container = document.getElementById('canvas-container'); //viewport in tutorial
 
-async function getPagesPerSpread(pdfDoc, startPageIndex) {
+const infoOverlay = document.getElementById('info-overlay');
+const darkenOverlay = document.getElementById('darken-overlay');
+const pageInfo = document.getElementById('page-info');
+
+//necessary for later reassignment of pageInfo
+let nameInfo = null;
+let pageNum = null;
+let pageCount = null;  
+
+const pageBackward = document.getElementById('backward-page');
+const pageForward = document.getElementById('forward-page');
+const noTurnArea = document.getElementById('noturn-area');
+
+function buildSpreadMap() {
 	const wideScreen = window.innerWidth > window.innerHeight; //better than just window.width etc.
-	const totalPagesLeft = pdfDoc.numPages - startPageIndex;
 
-	if (totalPagesLeft < 2) {
-		//only one page per spread if only one page left!
-		return 1;
-	}
+	const portraitMap = pagesCache.map(function(e) {
+		const vp = e.getViewport({scale: 1});
+		return vp.width <= vp.height;
+	})
 
-	//1-indexed; await waits for pdf input without stopping
-	const page1 = await pdfDoc.getPage(startPageIndex + 1);
-	const page2 = await pdfDoc.getPage(startPageIndex + 2);
+	//creates numPages-length array
+	spreadMap = Array(pdfDocGlobal.numPages);
 
-	const vp1 = page1.getViewport({scale: 1});
-	const vp2 = page2.getViewport({scale: 1});
-
-
-	const page1Portrait = vp1.width <= vp1.height;
-	const page2Portrait = vp2.width <= vp2.height;
-
-	if (wideScreen === true && page1Portrait === true && page2Portrait === true) {
-    // Two pages if both are portrait, one page otherwise
-    return 2;
-  }
-  //otherwise...
-	return 1;
-}
-
-async function renderSpread() { //doesn't need to be another function but whatever
-	const pagesPerSpread = await getPagesPerSpread(pdfDocGlobal, currentSpreadIndex);
-	const startPage = currentSpreadIndex; //helpful for the logic
-	const endPage = Math.min(startPage + pagesPerSpread - 1, pdfDocGlobal.numPages -1);
-
-	const pagePromises = [];
-	for (let i = startPage; i <= endPage; i++) { //iteration!
-		pagePromises.push(pdfDocGlobal.getPage(i+1)); //starts from 1, apparently
-	}
-
-	return Promise.all(pagePromises);
+	for (let i = 0; i < pdfDocGlobal.numPages; i++) { //settled on a 0-index, but 1-index is nearly as viable
+        //Only 1 page left, or screen isn't wide, or current page isn't portrait
+        if (i + 1 >= pdfDocGlobal.numPages || wideScreen === false || portraitMap[i] === false || portraitMap[i + 1] === false) {
+            spreadMap[i] = 1;
+        } else {
+            spreadMap[i] = 2;
+        }
+    }
 }
 
 function renderPage(page, pageDiv, pagesPerSpread) {
@@ -63,9 +59,9 @@ function renderPage(page, pageDiv, pagesPerSpread) {
   const scaleY = availableHeight / unscaledViewport.height;
   const fitScale = Math.min(scaleX, scaleY);
 
-  const viewport = page.getViewport({scale: fitScale})
+  const viewport = page.getViewport({scale: fitScale});
 
-  const outputScale = window.devicePixelRatio * 2
+  const outputScale = window.devicePixelRatio * 2;
   
   //crispy
   canvas.height = Math.floor(viewport.height * outputScale);
@@ -79,19 +75,20 @@ function renderPage(page, pageDiv, pagesPerSpread) {
   page.render({canvasContext: ctx, transform: transform, viewport: viewport}); //this is simpler than prev code
 }
 
-async function updateDisplay() {
-	if (!pdfDocGlobal) return;
-	const pages = await renderSpread();
+function updateDisplay() {
+	if (pdfDocGlobal === null) return;
+	const pagesPerSpread = spreadMap[currentSpreadIndex];
+	const pages = pagesCache.slice(currentSpreadIndex, currentSpreadIndex+pagesPerSpread);
 	
 	//creates canvas wrapper for every page (should be one or two)
-	//Taking one-use code and putting it into a function is awesome
 	container.innerHTML = pages
-		.map (function() {return '<div class="page"><canvas></canvas></div>'}) //I don't understand the arrow thing so
+		.map (function() {return '<div class="page"><canvas></canvas></div>'})
 		.join('');
 
 	pages.forEach(function(page,index) {
 		renderPage(page, container.children[index], pages.length);
 	});
+
 }
 
 window.addEventListener('resize', function() { //timeouts are fun
@@ -100,13 +97,12 @@ window.addEventListener('resize', function() { //timeouts are fun
 
 	//waits 200 ms
 	resizeTimeout = setTimeout(function () {
+		buildSpreadMap();
 		updateDisplay();
 	}, 200);
 });
 
 input.addEventListener('change', function() {
-	console.log(input.files[0]);
-
 	//should only use the first file; is this necessary?
 	const file = input.files[0];
 	if (!file) return;
@@ -118,6 +114,9 @@ input.addEventListener('change', function() {
 		return;
 	}
 
+	nameInfo = document.getElementById('name-info');
+	nameInfo.textContent = file.name;
+
 	const reader = new FileReader();
 
 	reader.onload = function(event) {
@@ -125,12 +124,22 @@ input.addEventListener('change', function() {
 		const arrayBuffer = event.target.result;
 
 		//raw array to virtual document
-		pdfjsLib.getDocument({data: arrayBuffer}).promise.then(function(pdfDocument) {
-			//test
-			console.log("Document loaded, pages=", pdfDocument.numPages);
-
+		pdfjsLib.getDocument({data: arrayBuffer, wasmUrl}).promise.then(async function(pdfDocument) {
 			pdfDocGlobal = pdfDocument;
 			currentSpreadIndex = 0;
+			pageInfo.innerHTML = 'Page <span id="page-num"></span> of <span id="page-count"></span>';
+			pageNum = document.getElementById('page-num');
+			pageCount = document.getElementById('page-count');  
+			pageNum.textContent = 1;
+			pageCount.textContent = pdfDocGlobal.numPages;
+
+			//loads all PDFs to minimise delay
+			const pagePromises = [];
+			for (let i = 1; i <= pdfDocGlobal.numPages; i++) { //making i 1-indexed works nicely
+  				pagePromises.push(pdfDocGlobal.getPage(i));
+			}
+			pagesCache = await Promise.all(pagePromises);
+			buildSpreadMap();
 			updateDisplay();
 		});
 	};
@@ -139,13 +148,84 @@ input.addEventListener('change', function() {
 
 });
 
-document.addEventListener('keyup', function(e) {
-	if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+function nextSpread() { //simple enough, no checks necessary here
+	currentSpreadIndex += spreadMap[currentSpreadIndex];
+	pageNum.textContent = currentSpreadIndex+1;
+	updateDisplay();
+}
 
+function canGoNextSpread() { //made this a whole function
+	if (currentSpreadIndex+spreadMap[currentSpreadIndex]<pdfDocGlobal.numPages) { //Cannot be equal to due to 1-index
+		return true;
+	}
+	return false;
+}
 
-	} else if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+function prevSpread() {
+	if (currentSpreadIndex >= 2) {
+		//no need for prevCheck2 or getPagesPerSpread huh...
+		if (spreadMap[currentSpreadIndex-2] === 2) {
+			currentSpreadIndex -= 2;
+		} else {
+			currentSpreadIndex -= 1;
+		}
+	} else { //if currentSpreadIndex is 1, 0, and anything invalid
+		currentSpreadIndex = 0;
+	}
+	pageNum.textContent = currentSpreadIndex+1;
+	updateDisplay(); //one run of the function at the end
+}
 
-
+document.addEventListener('keyup',  function(e) {
+	if (pdfDocGlobal !== null) {
+		if (canGoNextSpread() && (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'ArrowDown')) {
+			nextSpread();
+		} else if (currentSpreadIndex > 0 && (e.code === 'ArrowLeft' || e.code === 'ArrowUp')) {
+			prevSpread();
+		}
 	}
 });
 
+darkenOverlay.addEventListener('click', function() {
+	darkenOverlay.blur();
+	infoOverlay.style.pointerEvents = 'none';
+	infoOverlay.style.transition = 'opacity 200ms' //for some reason this looks natural...
+	infoOverlay.style.opacity = '0';
+
+});
+
+noTurnArea.addEventListener('click', function() {
+	noTurnArea.blur();
+	infoOverlay.style.pointerEvents = 'auto';
+	infoOverlay.style.transition = 'opacity 400ms' //...with this
+	infoOverlay.style.opacity = '1';
+
+});
+
+pageBackward.addEventListener('click', function() {
+	pageBackward.blur();
+	if (pdfDocGlobal !== null && currentSpreadIndex > 0) {
+		pageBackward.style.transition = 'opacity 400ms'
+		pageBackward.style.opacity = '1';
+		prevSpread();
+		setTimeout(function() {
+			pageBackward.style.transition = 'opacity 200ms'
+			pageBackward.style.opacity = '0';
+		}, 400);
+	}
+});
+
+pageForward.addEventListener('click', function() {
+	pageForward.blur();
+	if (pdfDocGlobal !== null) {
+		if (canGoNextSpread()) {
+			pageForward.style.transition = 'opacity 400ms'
+			pageForward.style.opacity = '1';
+			nextSpread();
+			setTimeout(function() {
+				pageForward.style.transition = 'opacity 200ms'
+				pageForward.style.opacity = '0';
+			}, 400);
+		}
+	}
+});
