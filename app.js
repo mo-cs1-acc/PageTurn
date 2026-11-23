@@ -7,9 +7,14 @@ let pdfDocGlobal = null;
 let resizeTimeout = null; //also necessary for the first time the resize listener is called
 let pagesCache = []; //this is an awesome idea
 let spreadMap = [];
+let spreadStart = 0;
+let wideScreen = window.innerWidth > window.innerHeight; //better than just window.width etc.
 
-//in theory could be inside reader.onload, but this works fine
-const input = document.querySelector('input[type="file"]');
+let singleFirstPage = false; //only applicable to widescreen devices
+let halfTurn = false;
+let isHalfTurned = false; //tracks current state of turn
+
+const pdfInput = document.getElementById('pdf-upload'); //used to be querySelector, but this is consistent
 const container = document.getElementById('canvas-container'); //viewport in tutorial
 
 const infoOverlay = document.getElementById('info-overlay');
@@ -25,8 +30,19 @@ const pageBackward = document.getElementById('backward-page');
 const pageForward = document.getElementById('forward-page');
 const noTurnArea = document.getElementById('noturn-area');
 
+let backButtonTimeout = null;
+let forButtonTimeout = null;
+
+//bottom buttons
+const previewButton = document.getElementById('preview');
+
+//Settings popover
+const settingsPopover = document.getElementById('settings-popover');
+const liElementSingleFirstPage = document.getElementById('cover-onepage');
+const liElementHalfTurn = document.getElementById('halfturn');
+const liElementTurnArea = document.getElementById('turnarea-button');
+
 function buildSpreadMap() {
-	const wideScreen = window.innerWidth > window.innerHeight; //better than just window.width etc.
 
 	const portraitMap = pagesCache.map(function(e) {
 		const vp = e.getViewport({scale: 1});
@@ -38,7 +54,7 @@ function buildSpreadMap() {
 
 	for (let i = 0; i < pdfDocGlobal.numPages; i++) { //settled on a 0-index, but 1-index is nearly as viable
         //Only 1 page left, or screen isn't wide, or current page isn't portrait
-        if (i + 1 >= pdfDocGlobal.numPages || wideScreen === false || portraitMap[i] === false || portraitMap[i + 1] === false) {
+        if ((i===0 && singleFirstPage === true) || i + 1 >= pdfDocGlobal.numPages || wideScreen === false || portraitMap[i] === false || portraitMap[i + 1] === false) {
             spreadMap[i] = 1;
         } else {
             spreadMap[i] = 2;
@@ -47,38 +63,42 @@ function buildSpreadMap() {
 }
 
 function renderPage(page, pageDiv, pagesPerSpread) {
-  const canvas = pageDiv.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
+	const canvas = pageDiv.querySelector('canvas');
+	const ctx = canvas.getContext('2d');
   
-  const unscaledViewport = page.getViewport({scale: 1});
+  	const unscaledViewport = page.getViewport({scale: 1});
 
-  const availableWidth = (window.innerWidth-10)/pagesPerSpread;
-  const availableHeight = window.innerHeight - 10;
+	const availableWidth = (window.innerWidth-10)/pagesPerSpread;
+	const availableHeight = window.innerHeight - 10;
 
-  const scaleX = availableWidth / unscaledViewport.width;
-  const scaleY = availableHeight / unscaledViewport.height;
-  const fitScale = Math.min(scaleX, scaleY);
+	const scaleX = availableWidth / unscaledViewport.width;
+	const scaleY = availableHeight / unscaledViewport.height;
+	const fitScale = Math.min(scaleX, scaleY);
 
-  const viewport = page.getViewport({scale: fitScale});
+	const viewport = page.getViewport({scale: fitScale});
 
-  const outputScale = window.devicePixelRatio * 2;
-  
-  //crispy
-  canvas.height = Math.floor(viewport.height * outputScale);
-  canvas.width = Math.floor(viewport.width * outputScale);
+	//clamps value to 2–3
+	const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
 
-  canvas.style.width = Math.floor(viewport.width) + "px";
-  canvas.style.height = Math.floor(viewport.height) + "px";
+	//crispy
+	canvas.height = Math.floor(viewport.height * outputScale);
+	canvas.width = Math.floor(viewport.width * outputScale);
 
-  const transform = [outputScale, 0, 0, outputScale, 0, 0];
+	canvas.style.width = Math.floor(viewport.width) + "px";
+	canvas.style.height = Math.floor(viewport.height) + "px";
 
-  page.render({canvasContext: ctx, transform: transform, viewport: viewport}); //this is simpler than prev code
+	const transform = [outputScale, 0, 0, outputScale, 0, 0];
+
+	page.render({canvasContext: ctx, transform: transform, viewport: viewport}); //this is simpler than prev code
 }
 
 function updateDisplay() {
 	if (pdfDocGlobal === null) return;
-	const pagesPerSpread = spreadMap[currentSpreadIndex];
-	const pages = pagesCache.slice(currentSpreadIndex, currentSpreadIndex+pagesPerSpread);
+	pageNum.value = currentSpreadIndex+1;
+
+	getSpreadStart(); //gets the first page in spread
+	const pagesPerSpread = spreadMap[spreadStart];
+	const pages = pagesCache.slice(spreadStart, spreadStart+pagesPerSpread);
 	
 	//creates canvas wrapper for every page (should be one or two)
 	container.innerHTML = pages
@@ -88,7 +108,15 @@ function updateDisplay() {
 	pages.forEach(function(page,index) {
 		renderPage(page, container.children[index], pages.length);
 	});
+}
 
+function getSpreadStart() {
+	let validIndex = 0;
+	while (validIndex + spreadMap[validIndex] <= currentSpreadIndex) { //searches the spreadMap
+		validIndex += spreadMap[validIndex];
+	}
+	
+	spreadStart = validIndex; //this allows currentSpreadIndex to retain its value
 }
 
 window.addEventListener('resize', function() { //timeouts are fun
@@ -97,22 +125,34 @@ window.addEventListener('resize', function() { //timeouts are fun
 
 	//waits 200 ms
 	resizeTimeout = setTimeout(function () {
-		buildSpreadMap();
-		updateDisplay();
+		wideScreen = window.innerWidth > window.innerHeight;
+		if (wideScreen === true) {
+			isHalfTurned = false;
+		}
+
+		if (pdfDocGlobal !== null) {
+			buildSpreadMap();
+			updateDisplay();
+		}
+
 	}, 200);
+
 });
 
-input.addEventListener('change', function() {
-	//should only use the first file; is this necessary?
-	const file = input.files[0];
+pdfInput.addEventListener('change', function() {
+	const file = pdfInput.files[0];
 	if (!file) return;
 
 	//checks PDF, should not be necessary after accept attribute in HTML
 	if (file.type !== "application/pdf") {
 		alert("File is not a PDF.");
-		input.value="";
+		pdfInput.value="";
 		return;
 	}
+
+	pdfDocGlobal = null; //resets pdfDocGlobal, might change later
+
+	isHalfTurned = false; //where else to put this
 
 	nameInfo = document.getElementById('name-info');
 	nameInfo.textContent = file.name;
@@ -127,11 +167,11 @@ input.addEventListener('change', function() {
 		pdfjsLib.getDocument({data: arrayBuffer, wasmUrl}).promise.then(async function(pdfDocument) {
 			pdfDocGlobal = pdfDocument;
 			currentSpreadIndex = 0;
-			pageInfo.innerHTML = 'Page <span id="page-num"></span> of <span id="page-count"></span>';
+			pageInfo.innerHTML = 'Page <input type="text" inputmode="numeric" id="page-num" /> of <span id="page-count"></span>';
 			pageNum = document.getElementById('page-num');
 			pageCount = document.getElementById('page-count');  
-			pageNum.textContent = 1;
-			pageCount.textContent = pdfDocGlobal.numPages;
+			pageNum.style.width = String(pdfDocGlobal.numPages).length + "ch"; //ch is pretty nice for a monospaced font
+			pageCount.textContent = pdfDocGlobal.numPages; 
 
 			//loads all PDFs to minimise delay
 			const pagePromises = [];
@@ -149,35 +189,27 @@ input.addEventListener('change', function() {
 });
 
 function nextSpread() { //simple enough, no checks necessary here
-	currentSpreadIndex += spreadMap[currentSpreadIndex];
-	pageNum.textContent = currentSpreadIndex+1;
+	getSpreadStart();
+	currentSpreadIndex = spreadStart + spreadMap[spreadStart];
 	updateDisplay();
 }
 
 function canGoNextSpread() { //made this a whole function
-	if (currentSpreadIndex+spreadMap[currentSpreadIndex]<pdfDocGlobal.numPages) { //Cannot be equal to due to 1-index
-		return true;
-	}
-	return false;
+	getSpreadStart();
+	return spreadStart+spreadMap[spreadStart]<pdfDocGlobal.numPages; //Cannot be equal to due to 1-index
 }
 
-function prevSpread() {
-	if (currentSpreadIndex >= 2) {
-		//no need for prevCheck2 or getPagesPerSpread huh...
-		if (spreadMap[currentSpreadIndex-2] === 2) {
-			currentSpreadIndex -= 2;
-		} else {
-			currentSpreadIndex -= 1;
-		}
-	} else { //if currentSpreadIndex is 1, 0, and anything invalid
-		currentSpreadIndex = 0;
+function prevSpread() { //similar but different logic to getSpreadStart
+	let prevIndex = 0;
+	while (prevIndex + spreadMap[prevIndex] < spreadStart) { //not equals to because going backwards
+		prevIndex += spreadMap[prevIndex];
 	}
-	pageNum.textContent = currentSpreadIndex+1;
+	currentSpreadIndex = prevIndex;
 	updateDisplay(); //one run of the function at the end
 }
 
 document.addEventListener('keyup',  function(e) {
-	if (pdfDocGlobal !== null) {
+	if (pdfDocGlobal !== null && document.activeElement !== pageNum) {
 		if (canGoNextSpread() && (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'ArrowDown')) {
 			nextSpread();
 		} else if (currentSpreadIndex > 0 && (e.code === 'ArrowLeft' || e.code === 'ArrowUp')) {
@@ -189,7 +221,7 @@ document.addEventListener('keyup',  function(e) {
 darkenOverlay.addEventListener('click', function() {
 	darkenOverlay.blur();
 	infoOverlay.style.pointerEvents = 'none';
-	infoOverlay.style.transition = 'opacity 200ms' //for some reason this looks natural...
+	infoOverlay.style.transition = 'opacity 200ms'; //for some reason this looks natural...
 	infoOverlay.style.opacity = '0';
 
 });
@@ -197,7 +229,7 @@ darkenOverlay.addEventListener('click', function() {
 noTurnArea.addEventListener('click', function() {
 	noTurnArea.blur();
 	infoOverlay.style.pointerEvents = 'auto';
-	infoOverlay.style.transition = 'opacity 400ms' //...with this
+	infoOverlay.style.transition = 'opacity 400ms'; //...with this
 	infoOverlay.style.opacity = '1';
 
 });
@@ -205,11 +237,12 @@ noTurnArea.addEventListener('click', function() {
 pageBackward.addEventListener('click', function() {
 	pageBackward.blur();
 	if (pdfDocGlobal !== null && currentSpreadIndex > 0) {
-		pageBackward.style.transition = 'opacity 400ms'
+		clearTimeout(backButtonTimeout);
+		pageBackward.style.transition = 'opacity 400ms';
 		pageBackward.style.opacity = '1';
 		prevSpread();
-		setTimeout(function() {
-			pageBackward.style.transition = 'opacity 200ms'
+		backButtonTimeout = setTimeout(function() {
+			pageBackward.style.transition = 'opacity 200ms';
 			pageBackward.style.opacity = '0';
 		}, 400);
 	}
@@ -219,13 +252,76 @@ pageForward.addEventListener('click', function() {
 	pageForward.blur();
 	if (pdfDocGlobal !== null) {
 		if (canGoNextSpread()) {
-			pageForward.style.transition = 'opacity 400ms'
+			clearTimeout(forButtonTimeout);
+			pageForward.style.transition = 'opacity 400ms';
 			pageForward.style.opacity = '1';
 			nextSpread();
-			setTimeout(function() {
-				pageForward.style.transition = 'opacity 200ms'
+			forButtonTimeout = setTimeout(function() {
+				pageForward.style.transition = 'opacity 200ms';
 				pageForward.style.opacity = '0';
 			}, 400);
 		}
 	}
+});
+
+pageInfo.addEventListener('change', function(e) {
+	e.target.blur();
+
+	isHalfTurned = false;
+
+	let pageInput = parseInt(e.target.value, 10); //just in case
+
+	if (isNaN(pageInput) || pageInput < 1) {
+		pageInput = 1;
+	} else if (pageInput > pdfDocGlobal.numPages) {
+		pageInput = pdfDocGlobal.numPages;
+	}
+
+	currentSpreadIndex = pageInput - 1; //again, 0-based
+	//doesn't need to snap the page number to a valid index anymore
+
+	updateDisplay();
+
+});
+
+previewButton.addEventListener('click', function() {
+	//doesn't do anything yet
+	console.log("test");
+});
+
+liElementSingleFirstPage.addEventListener('change', function(e) {
+	singleFirstPage = e.target.checked;
+	if (pdfDocGlobal !== null) {
+		buildSpreadMap();
+		updateDisplay();
+	}
+
+});
+
+//I haven't made this do anything yet because the logic is too headachey
+liElementHalfTurn.addEventListener('change', function(e) {
+	halfTurn = e.target.checked;
+
+	if (halfTurn === false) {
+		isHalfTurned = false;
+	}
+
+});
+
+liElementTurnArea.addEventListener('click', function() {
+	liElementTurnArea.blur();
+	settingsPopover.hidePopover(); //this was intuitive; didn't even need a tutorial
+
+	function outOfSight(erasedElement) { //there was definitely a much easier way of doing this
+		erasedElement.style.pointerEvents = 'none';
+		erasedElement.style.transtion = 'opacity 0ms';
+		erasedElement.style.opacity = '0';
+	}
+	
+	//whatever, this keeps the PDF loaded
+	outOfSight(infoOverlay);
+	outOfSight(pageBackward);
+	outOfSight(noTurnArea);
+	outOfSight(pageForward);
+
 });

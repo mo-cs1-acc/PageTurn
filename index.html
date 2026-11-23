@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="style.css">
+	<link href='https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400..800&display=swap' rel='stylesheet'>
 	<title>PageTurn</title>
 </head>
 <body>
@@ -26,16 +27,49 @@
 
 		<footer class="bar" id="bottom-bar">
 			<div class="bottom-section" id="bottom-left">
-				<button></button>
+				<button class="icon-button" id="preview">⧉</button>
 			</div>
 			<div class="bottom-section" id="bottom-center">
-				<h2><span id="page-info">Upload PDF to begin</span></h2>
+				<h2><span id="page-info">Upload PDF</span></h2>
 			</div>
 			<div class="bottom-section" id="bottom-right">
-				<input type="file" accept=".pdf, application/pdf" id="upload"/>
-				<button class="icon-button" id="settings" title="Settings"><h3>⚙</h3></button>
+				<input type="file" accept=".pdf, application/pdf" id="pdf-upload" hidden/>
+				<label class="icon-button" id="upload-visible" for="pdf-upload">↥</label>
+				<button class="icon-button" id="settings" title="Settings" popovertarget="settings-popover">⚙</button>
 			</div>
 		</footer>
+
+	</div>
+
+	<div class="popover-menu" id="settings-popover" popover>
+		<h3>Settings</h3>
+		<ul class="popover-ul" id="settings-list">
+			<li id="cover-onepage">
+				<span>Single first page</span>
+				<span><label class="switch">
+  					<input type="checkbox" id="cover-onepage-toggle">
+  					<span class="slider"></span>
+				</label></span>
+			</li>
+			<li id="halfturn">
+				<span>Turn half at a time</span>
+				<span><label class="switch">
+					<input type="checkbox" id="halfturn-toggle">
+					<span class="slider"></span>
+				</label></span>
+			</li>
+			<li id="pageturn-areas">
+				<button class="settingslist-button" id="turnarea-button">Set turn button areas</button>
+			</li>
+			<li id="reset-settings">
+				<button class="settingslist-button" id="reset-button">Reset all settings</button>
+
+			</li>
+		</ul>
+
+	</div>
+
+	<div id="page-preview">	
 
 	</div>
 

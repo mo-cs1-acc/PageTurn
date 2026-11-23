@@ -1,7 +1,27 @@
 body {
   margin: 0;
   overflow: hidden;
+  font-family: "EB Garamond", Garamond, serif;
+  font-variant-numeric: tabular-nums;
 }
+
+h2 {
+  font-weight: normal;
+}
+
+h3 {
+  margin-top: 0;
+
+}
+
+/*for mobile specifically*/
+button {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
 
 /*flexboxes are amazing*/
 #canvas-container {
@@ -11,12 +31,6 @@ body {
   align-items: center;
   height: 100dvh;
   z-index: -1;
-}
-
-@media only screen and (orientation: portrait) {
-  #canvas-container {
-    flex-direction: column;
-  }
 }
 
 #pdf-overlay {
@@ -30,7 +44,6 @@ body {
 .pageturn-button {
   all: unset;
   height: 100dvh;
-  width: 20dvw;
   background-color: rgba(0,0,0,0.5);
   opacity: 0;
   cursor: pointer;
@@ -41,6 +54,10 @@ body {
   color: rgba(255,255,255,0.5);
 }
 
+#backward-page {
+  width: 20dvw;
+
+}
 
 #noturn-area {
   all: unset;
@@ -49,7 +66,10 @@ body {
 
 }
 
+#forward-page {
+  width: 20dvw;
 
+}
 
 #info-overlay {
   position: fixed;
@@ -86,11 +106,24 @@ body {
   background-color: white;
 }
 
+/*all padding for bottom buttons use 1.5 to match button size*/
 .bottom-section {
   width: 33dvw;
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 1.5dvh;
+  box-sizing: border-box; /*prevents padding from breaking it*/
+}
+
+#bottom-left {
+  justify-content: flex-start;
+  padding-left: 1.5dvh;
+}
+
+#bottom-right {
+  justify-content: flex-end;
+  padding-right: 1.5dvh;
 }
 
 .icon-button {
@@ -99,8 +132,129 @@ body {
   width: 7dvh;
   background-color: white;
   border-radius: 1dvh;
+  border: 1px solid black;
   font-size: 4dvh;
-  padding: 0px;
+  padding: 0;
   justify-content: center;
   align-items: center;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+#page-num {
+  background-color: rgba(0,0,0,0.2);
+  font: inherit;
+  box-sizing: content-box;
+
+}
+
+#settings {
+  anchor-name: --settings;
+
+}
+
+.popover-menu {
+  position: fixed;
+  border: 1px solid black;
+  inset: auto;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.popover-ul {
+  display: flex;
+  flex-direction: column;
+  list-style-type: none;
+  margin: 0;
+  padding-left: 0;
+  gap: 16px;
+}
+
+.popover-ul li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+}
+
+#settings-popover {
+  position-anchor: --settings;
+  right: anchor(right);
+  bottom: calc(anchor(top) + 3dvh)
+}
+
+/*taken from w3schools*/
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .1s;
+  transition: .1s;
+  border-radius: 20px;
+
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  -webkit-transition: .1s;
+  transition: .1s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(16px);
+  -ms-transform: translateX(16px);
+  transform: translateX(16px);
+}
+
+
+#halfturn {
+  display: none;
+
+}
+
+
+@media only screen and (orientation: portrait) {
+  #canvas-container {
+    flex-direction: column;
+  }
+  #cover-onepage {
+		display: none;
+	}
+  #halfturn {
+    display: flex;
+  }
 }
