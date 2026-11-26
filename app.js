@@ -1,9 +1,11 @@
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/build/pdf.min.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/build/pdf.worker.min.mjs';
+//using /legacy/ fixed the error on mobile (and should work on old devices)
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/legacy/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/legacy/build/pdf.worker.min.mjs';
 const wasmUrl = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/wasm/'; //Some IMSLP sheet music needs this, apparently
 
 let currentSpreadIndex = 0; //needed for two-page spread, this is the PAGE NUMBER.
 let pdfDocGlobal = null;
+let pdfDGName = null;
 let resizeTimeout = null; //also necessary for the first time the resize listener is called
 let pagesCache = []; //this is an awesome idea
 let spreadMap = [];
@@ -18,6 +20,7 @@ const pdfInput = document.getElementById('pdf-upload'); //used to be querySelect
 const container = document.getElementById('canvas-container'); //viewport in tutorial
 
 const infoOverlay = document.getElementById('info-overlay');
+const pageRange = document.getElementById('page-range');
 const darkenOverlay = document.getElementById('darken-overlay');
 const pageInfo = document.getElementById('page-info');
 
@@ -35,12 +38,18 @@ let forButtonTimeout = null;
 
 //bottom buttons
 const previewButton = document.getElementById('preview');
+const exportButton = document.getElementById('pdf-export');
+
+const pagePreview = document.getElementById('page-preview');
+const closePreview = document.getElementById('close-preview');
+const previewSelected = [];
 
 //Settings popover
 const settingsPopover = document.getElementById('settings-popover');
-const liElementSingleFirstPage = document.getElementById('cover-onepage');
-const liElementHalfTurn = document.getElementById('halfturn');
-const liElementTurnArea = document.getElementById('turnarea-button');
+const popoverSingleFirstPage = document.getElementById('cover-onepage-toggle');
+const popoverHalfTurn = document.getElementById('halfturn-toggle');
+const popoverTurnArea = document.getElementById('turnarea-button');
+const popoverReset = document.getElementById('reset-button');
 
 function buildSpreadMap() {
 
@@ -77,8 +86,8 @@ function renderPage(page, pageDiv, pagesPerSpread) {
 
 	const viewport = page.getViewport({scale: fitScale});
 
-	//clamps value to 2–3
-	const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+	//sets value to 4 (or higher, but not likely)
+	const outputScale = Math.max(window.devicePixelRatio, 4);
 
 	//crispy
 	canvas.height = Math.floor(viewport.height * outputScale);
@@ -95,6 +104,7 @@ function renderPage(page, pageDiv, pagesPerSpread) {
 function updateDisplay() {
 	if (pdfDocGlobal === null) return;
 	pageNum.value = currentSpreadIndex+1;
+	pageRange.value = currentSpreadIndex+1;
 
 	getSpreadStart(); //gets the first page in spread
 	const pagesPerSpread = spreadMap[spreadStart];
@@ -155,7 +165,8 @@ pdfInput.addEventListener('change', function() {
 	isHalfTurned = false; //where else to put this
 
 	nameInfo = document.getElementById('name-info');
-	nameInfo.textContent = file.name;
+	pdfDGName = file.name;
+	nameInfo.textContent = pdfDGName;
 
 	const reader = new FileReader();
 
@@ -167,6 +178,9 @@ pdfInput.addEventListener('change', function() {
 		pdfjsLib.getDocument({data: arrayBuffer, wasmUrl}).promise.then(async function(pdfDocument) {
 			pdfDocGlobal = pdfDocument;
 			currentSpreadIndex = 0;
+			pageRange.style.display = 'initial';
+			pageRange.max = pdfDocGlobal.numPages;
+			pageRange.value = 1;
 			pageInfo.innerHTML = 'Page <input type="text" inputmode="numeric" id="page-num" /> of <span id="page-count"></span>';
 			pageNum = document.getElementById('page-num');
 			pageCount = document.getElementById('page-count');  
@@ -219,6 +233,10 @@ document.addEventListener('keyup',  function(e) {
 });
 
 darkenOverlay.addEventListener('click', function() {
+	if (!pdfDocGlobal) {
+		pdfInput.click(); //reusing this idea
+		return;
+	}
 	darkenOverlay.blur();
 	infoOverlay.style.pointerEvents = 'none';
 	infoOverlay.style.transition = 'opacity 200ms'; //for some reason this looks natural...
@@ -264,6 +282,11 @@ pageForward.addEventListener('click', function() {
 	}
 });
 
+pageRange.addEventListener('input', function() { //this was incredibly easy to code, love it
+	currentSpreadIndex = parseInt(pageRange.value, 10) - 1;
+	updateDisplay();
+});
+
 pageInfo.addEventListener('change', function(e) {
 	e.target.blur();
 
@@ -278,19 +301,49 @@ pageInfo.addEventListener('change', function(e) {
 	}
 
 	currentSpreadIndex = pageInput - 1; //again, 0-based
-	//doesn't need to snap the page number to a valid index anymore
+	//no need to snap the page number to a valid index anymore
 
 	updateDisplay();
 
 });
 
 previewButton.addEventListener('click', function() {
-	//doesn't do anything yet
-	console.log("test");
+	if (!pdfDocGlobal) return;
+	pagePreview.style.display = 'flex';
+
+	//populate the preview-canvascontainer
+
+
 });
 
-liElementSingleFirstPage.addEventListener('change', function(e) {
-	singleFirstPage = e.target.checked;
+closePreview.addEventListener('click', function() {
+	pagePreview.style.display = 'none';
+
+})
+
+exportButton.addEventListener('click', async function() { //downloads for user, thank you tutorial!
+	if (!pdfDocGlobal) return;
+	const exportData = await pdfDocGlobal.saveDocument();
+	const exportBlob = new Blob([exportData], {type: 'application/pdf'});
+
+	//creates temp element to trigger download
+	const exportUrl = URL.createObjectURL(exportBlob);
+	const exportHyperlink = document.createElement('a');
+	exportHyperlink.href = exportUrl;
+	exportHyperlink.download = pdfDGName;
+	exportHyperlink.style.display = "none";
+	document.body.appendChild(exportHyperlink);
+
+	//I am inevitable
+	exportHyperlink.click();
+
+	//deletes temp element and exportUrl to free space
+	URL.revokeObjectURL(exportUrl);
+	exportHyperlink.remove();
+});
+
+popoverSingleFirstPage.addEventListener('change', function() {
+	singleFirstPage = popoverSingleFirstPage.checked;
 	if (pdfDocGlobal !== null) {
 		buildSpreadMap();
 		updateDisplay();
@@ -299,8 +352,8 @@ liElementSingleFirstPage.addEventListener('change', function(e) {
 });
 
 //I haven't made this do anything yet because the logic is too headachey
-liElementHalfTurn.addEventListener('change', function(e) {
-	halfTurn = e.target.checked;
+popoverHalfTurn.addEventListener('change', function() {
+	halfTurn = popoverHalfTurn.checked;
 
 	if (halfTurn === false) {
 		isHalfTurned = false;
@@ -308,8 +361,9 @@ liElementHalfTurn.addEventListener('change', function(e) {
 
 });
 
-liElementTurnArea.addEventListener('click', function() {
-	liElementTurnArea.blur();
+popoverTurnArea.addEventListener('click', function() {
+	/* Ideas...
+	popoverTurnArea.blur();
 	settingsPopover.hidePopover(); //this was intuitive; didn't even need a tutorial
 
 	function outOfSight(erasedElement) { //there was definitely a much easier way of doing this
@@ -323,5 +377,22 @@ liElementTurnArea.addEventListener('click', function() {
 	outOfSight(pageBackward);
 	outOfSight(noTurnArea);
 	outOfSight(pageForward);
+	*/
+
+});
+
+popoverReset.addEventListener('click', function() {
+	popoverSingleFirstPage.checked = false;
+	popoverHalfTurn.checked = false;
+
+	singleFirstPage = false;
+	halfTurn = false;
+	isHalfTurned = false;
+
+	if (pdfDocGlobal !== null) {
+		buildSpreadMap();
+		updateDisplay();
+	}
+	
 
 });

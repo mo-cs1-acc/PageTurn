@@ -79,6 +79,15 @@ button {
   z-index: 1;
 }
 
+#page-range {
+  display: none;
+  position: fixed;
+  top: 85dvh;
+  left: 16px;
+  width: calc(100dvw - 32px);
+
+}
+
 #name-info {
   display: block;
   white-space: nowrap;
@@ -96,8 +105,8 @@ button {
   cursor: pointer;
 }
 
- /*style for both bars */
-.bar {
+ /*style for all bars */
+.bar, .previewbar {
   height: 10dvh;
   width: 100dvw;
   display: flex;
@@ -107,7 +116,7 @@ button {
 }
 
 /*all padding for bottom buttons use 1.5 to match button size*/
-.bottom-section {
+.bar-section {
   width: 33dvw;
   display: flex;
   justify-content: center;
@@ -116,12 +125,12 @@ button {
   box-sizing: border-box; /*prevents padding from breaking it*/
 }
 
-#bottom-left {
+#bottom-left, #previewtop-left {
   justify-content: flex-start;
   padding-left: 1.5dvh;
 }
 
-#bottom-right {
+#bottom-right, #previewtop-right {
   justify-content: flex-end;
   padding-right: 1.5dvh;
 }
@@ -227,12 +236,9 @@ button {
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+  background-color: green;
 }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-}
 
 input:checked + .slider:before {
   -webkit-transform: translateX(16px);
@@ -246,6 +252,42 @@ input:checked + .slider:before {
 
 }
 
+#page-preview {
+  position: fixed;
+  inset: 0;
+  background-color: white;
+  display: none;
+  flex-direction: column;
+  z-index: 2;
+}
+
+#preview-canvascontainer {
+  flex: 1;
+  overflow-y: auto;
+  background-color: rgba(0,0,0,0.1);
+
+  display: grid;
+  place-items: center;
+  justify-content: space-evenly;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+
+}
+
+#preview-bottombar {
+  justify-content: space-evenly;
+
+}
+
+.previewaction-button {
+  height: 7dvh;
+  background-color: white;
+  border-radius: 1dvh;
+  border: 1px solid black;
+  font-family: "EB Garamond", Garamond, serif;
+  font-weight: normal;
+  font-size: 1.5em;
+
+}
 
 @media only screen and (orientation: portrait) {
   #canvas-container {

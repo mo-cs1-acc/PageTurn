@@ -18,7 +18,10 @@
 		<button class="pageturn-button" id="forward-page">→</button>
 	</div>
 
-	<div id="info-overlay"> <!--this should be able to fade-->
+	<div id="info-overlay">
+		<!--doesn't really matter where this is-->
+		<input type="range" id="page-range" min="1" step="1" />
+
 		<header class="bar" id="top-bar">
 			<h1><span id="name-info">PageTurn</span></h1>
 		</header>
@@ -26,15 +29,16 @@
 		<button id="darken-overlay"></button>
 
 		<footer class="bar" id="bottom-bar">
-			<div class="bottom-section" id="bottom-left">
-				<button class="icon-button" id="preview">⧉</button>
+			<div class="bar-section" id="bottom-left">
+				<button class="icon-button" id="preview" title="Preview pages">⧉</button>
+				<input type="file" accept=".pdf, application/pdf" id="pdf-upload" hidden/>
+				<label class="icon-button" id="upload-visible" title="Upload" for="pdf-upload">↥</label>
 			</div>
-			<div class="bottom-section" id="bottom-center">
+			<div class="bar-section" id="bottom-center">
 				<h2><span id="page-info">Upload PDF</span></h2>
 			</div>
-			<div class="bottom-section" id="bottom-right">
-				<input type="file" accept=".pdf, application/pdf" id="pdf-upload" hidden/>
-				<label class="icon-button" id="upload-visible" for="pdf-upload">↥</label>
+			<div class="bar-section" id="bottom-right">
+				<button class="icon-button" id="pdf-export" title="Export">⤓</button>
 				<button class="icon-button" id="settings" title="Settings" popovertarget="settings-popover">⚙</button>
 			</div>
 		</footer>
@@ -70,7 +74,25 @@
 	</div>
 
 	<div id="page-preview">	
+		<header class="previewbar" id="preview-topbar">
+			<div class="bar-section" id="previewtop-left">
+				<button class="icon-button" id="close-preview" title="Close preview">×</button>
+			</div>
+			<div class="bar-section" id="previewtop-center">
+				<h1><span class="preview-text">Select pages</span></h1>
+			</div>
+			<div class="bar-section" id="previewtop-right">
 
+			</div>
+		</header>
+
+		<div id="preview-canvascontainer"></div>
+
+		<footer class="previewbar" id="preview-bottombar">
+			<button class="previewaction-button" id="crop-button">Crop page</button>
+			<button class="previewaction-button" id="autocrop-button">Autocrop selected pages</button>
+			<button class="previewaction-button" id="autocropall-button">Autocrop all pages</button>
+		</footer>
 	</div>
 
 
